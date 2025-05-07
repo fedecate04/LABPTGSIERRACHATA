@@ -247,3 +247,68 @@ if modulo != "--":
             modulo.lower().replace(' ', '_')
         )
 
+# -------- MÓDULO ADICIONAL: GAS NATURAL --------
+elif modulo == "Gas Natural":
+    st.subheader("🛢️ Análisis de Gas Natural por Cromatografía")
+    st.markdown("Subí el archivo CSV generado por el cromatógrafo con los componentes y fracciones molares.")
+    archivo = st.file_uploader("📎 Cargar archivo CSV", type="csv")
+    operador_gas = st.text_input("👤 Operador responsable (Gas)", key="operador_gas")
+    observaciones_gas = st.text_area("📝 Observaciones", value="Sin observaciones.", key="obs_gas")
+
+    if archivo:
+        try:
+            df = pd.read_csv(archivo)
+            df.columns = [c.strip() for c in df.columns]
+            componentes = df.iloc[:, 0].values
+            fracciones = df.iloc[:, 1].values
+
+            HHV_dict = {
+                "Methane": 39.8, "Ethane": 70.6, "Propane": 101.0,
+                "i-Butane": 131.6, "n-Butane": 131.6,
+                "i-Pentane": 161.9, "n-Pentane": 161.9,
+                "Hexane": 192.2, "Nitrogen": 0.0, "CO2": 0.0
+            }
+            densidades_relativas = {
+                "Methane": 0.55, "Ethane": 1.04, "Propane": 1.52,
+                "i-Butane": 2.00, "n-Butane": 2.01,
+                "i-Pentane": 2.49, "n-Pentane": 2.51,
+                "Hexane": 3.00, "Nitrogen": 0.97, "CO2": 1.52
+            }
+
+            hhv = sum(fracciones[i] * HHV_dict.get(componentes[i], 0) for i in range(len(componentes)))
+            dens_rel = sum(fracciones[i] * densidades_relativas.get(componentes[i], 1) for i in range(len(componentes)))
+            lhv = hhv - 2.5  # Aprox para gas seco
+            wobbe = hhv / np.sqrt(dens_rel)
+
+            resultados_gas = {
+                "HHV (MJ/m³)": round(hhv, 2),
+                "LHV (MJ/m³)": round(lhv, 2),
+                "Densidad relativa": round(dens_rel, 4),
+                "Índice de Wobbe (MJ/m³)": round(wobbe, 2)
+            }
+
+            st.markdown("### 📊 Resultados calculados")
+            for k, v in resultados_gas.items():
+                st.markdown(f"**{k}:** {v}")
+
+            explicacion_gas = (
+                "Cálculo basado en GPA 2145. HHV calculado como suma ponderada de fracciones molares y poder calorífico de cada componente. "
+                "LHV estimado como HHV menos 2.5 MJ/m³ (corrección por agua). "
+                "Índice de Wobbe: HHV / √densidad relativa. "
+                "Densidad relativa respecto al aire."
+            )
+
+            if st.button("📄 Generar informe PDF de Gas Natural"):
+                generar_pdf(
+                    nombre="informe_gas_natural.pdf",
+                    operador=operador_gas,
+                    resultados=resultados_gas,
+                    explicacion=explicacion_gas,
+                    observaciones=observaciones_gas,
+                    carpeta="gas_natural"
+                )
+
+        except Exception as e:
+            st.error(f"❌ Error al procesar el archivo: {e}")
+
+
